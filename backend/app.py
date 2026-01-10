@@ -11,8 +11,8 @@ import threading
 import shutil
 
 # Import our custom modules
-from depression_model import DepressionPredictor
-from openface_processor import OpenFaceProcessor  # Using your existing processor
+from .depression_model import DepressionPredictor
+from .openface_processor import OpenFaceProcessor  # Using your existing processor
 
 # Get the correct paths relative to this file
 BASE_DIR = Path(__file__).resolve().parent.parent
