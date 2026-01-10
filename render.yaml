@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: depression-detection
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: OPENFACE_DIR
+        value: /opt/OpenFace
+    healthCheckPath: /health
