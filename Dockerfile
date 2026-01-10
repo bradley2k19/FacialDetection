@@ -61,25 +61,3 @@ EXPOSE 10000
 
 # Run the application
 CMD ["gunicorn", "--bind", "0.0.0.0:10000", "--timeout", "600", "--workers", "1", "backend.app:app"]
-```
-
-5. **Save the file**
-
----
-
-## STEP 2: Create .dockerignore
-
-1. **Create a new file** in the ROOT: `.dockerignore`
-
-2. **Paste this content:**
-```
-__pycache__
-*.pyc
-.git
-.env
-temp_openface
-uploads
-.venv
-*.exe
-node_modules
-.DS_Store
