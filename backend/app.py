@@ -14,8 +14,10 @@ import shutil
 from .depression_model import DepressionPredictor
 from .openface_processor import OpenFaceProcessor  # Using your existing processor
 
+# ============= MODIFIED SECTION START =============
 # Get the correct paths relative to this file
 BASE_DIR = Path(__file__).resolve().parent.parent
+BACKEND_DIR = Path(__file__).resolve().parent  # NEW: Backend directory
 TEMPLATE_DIR = BASE_DIR / 'frontend' / 'templates'
 STATIC_DIR = BASE_DIR / 'frontend' / 'static'
 
@@ -35,28 +37,54 @@ socketio = SocketIO(
 
 print(f"📁 Template folder: {TEMPLATE_DIR}")
 print(f"📁 Static folder: {STATIC_DIR}")
+print(f"📁 Backend folder: {BACKEND_DIR}")  # NEW
 
 # Paths
 TEMP_DIR = Path('temp_openface')
 UPLOADS_DIR = Path('uploads')
-OPENFACE_EXE = r'C:\Users\Augustin Bradley\Downloads\OpenFace_2.2.0_win_x64\OpenFace_2.2.0_win_x64\FeatureExtraction.exe'
+
+# OpenFace configuration - works on both Windows and Linux
+OPENFACE_DIR = os.environ.get('OPENFACE_DIR', '/opt/OpenFace')  # NEW: Get from environment
+OPENFACE_EXE = Path(OPENFACE_DIR) / 'build' / 'bin' / 'FeatureExtraction'  # NEW: Linux path
+
+# Check if we're on Windows (local development)
+if os.name == 'nt':  # NEW: Windows detection
+    OPENFACE_EXE = Path(r'C:\Users\Augustin Bradley\Downloads\OpenFace_2.2.0_win_x64\OpenFace_2.2.0_win_x64\FeatureExtraction.exe')
+
 OPENFACE_MODEL = 'model/main_clnf_general.txt'
 
 # Create directories
 TEMP_DIR.mkdir(exist_ok=True)
 UPLOADS_DIR.mkdir(exist_ok=True)
 
-# Initialize model and processor
-print("🔄 Loading model and OpenFace...")
+# Initialize model and processor with ABSOLUTE PATHS
+print("🔄 Loading model...")
+MODEL_PATH = BACKEND_DIR / 'best_depression_model.keras'  # NEW: Absolute path
+SCALER_PATH = BACKEND_DIR / 'feature_scaler.pkl'  # NEW: Absolute path
+
+print(f"   Model path: {MODEL_PATH}")  # NEW
+print(f"   Scaler path: {SCALER_PATH}")  # NEW
+print(f"   OpenFace path: {OPENFACE_EXE}")  # NEW
+
 predictor = DepressionPredictor(
-    model_path='best_depression_model.keras',
-    scaler_path='feature_scaler.pkl'
+    model_path=str(MODEL_PATH),  # MODIFIED: Use absolute path
+    scaler_path=str(SCALER_PATH)  # MODIFIED: Use absolute path
 )
-openface = OpenFaceProcessor(
-    openface_path=OPENFACE_EXE,
-    temp_dir=str(TEMP_DIR)
-)
-print("✅ Model and OpenFace loaded successfully!")
+
+# Initialize OpenFace if available
+if OPENFACE_EXE.exists():  # MODIFIED: Check if exists
+    print(f"✅ OpenFace found at: {OPENFACE_EXE}")
+    openface = OpenFaceProcessor(
+        openface_path=str(OPENFACE_EXE),
+        temp_dir=str(TEMP_DIR)
+    )
+    print("✅ Model and OpenFace loaded successfully!")
+else:
+    print(f"⚠️ OpenFace not found at: {OPENFACE_EXE}")
+    openface = None
+    print("⚠️ Running without OpenFace - feature extraction will fail")
+
+# ============= MODIFIED SECTION END =============
 
 # Store session data
 session_data = {}
@@ -291,7 +319,6 @@ def extract_frames(video_path, max_frames=300):
 def extract_features_from_frames(frames):
     """Extract features from frames using OpenFaceProcessor with frame skipping."""
     try:
-
         FRAME_SKIP = 1
         sampled_frames = frames[::FRAME_SKIP]
         
