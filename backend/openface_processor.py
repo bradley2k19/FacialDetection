@@ -10,6 +10,7 @@ import pandas as pd
 import subprocess
 import os
 import time
+from pathlib import Path
 
 class OpenFaceProcessor:
     """
@@ -30,6 +31,13 @@ class OpenFaceProcessor:
         
         # Create temp directory
         os.makedirs(temp_dir, exist_ok=True)
+        
+        # NEW: Make OpenFace executable on Linux
+        if os.name != 'nt' and os.path.exists(openface_path):
+            try:
+                os.chmod(openface_path, 0o755)
+            except:
+                pass
         
         print(f"   OpenFace path: {openface_path}")
         print(f"   Temp directory: {temp_dir}")
@@ -90,17 +98,32 @@ class OpenFaceProcessor:
         
         video_path_abs = os.path.abspath(video_path)
         output_dir_abs = os.path.abspath(self.temp_dir)
-        openface_dir = os.path.dirname(self.openface_path)
         
+        # NEW: Get OpenFace directory (works for both Windows and Linux)
+        openface_path_obj = Path(self.openface_path)
+        if os.name == 'nt':
+            # Windows: Use parent directory
+            openface_dir = os.path.dirname(self.openface_path)
+        else:
+            # Linux: OpenFace is in /opt/OpenFace/build/bin/
+            # Go up to /opt/OpenFace for model files
+            openface_dir = str(openface_path_obj.parent.parent.parent)
+        
+        # NEW: Build command with proper model path
         command = [
             self.openface_path,
             "-f", video_path_abs,
             "-out_dir", output_dir_abs,
-            "-mloc", "model/main_clnf_general.txt",
             "-aus",
             "-gaze",
             "-pose"
         ]
+        
+        # NEW: Add model path only if it exists (Windows-specific)
+        model_path = os.path.join(openface_dir, "model", "main_clnf_general.txt")
+        if os.path.exists(model_path):
+            command.insert(5, "-mloc")
+            command.insert(6, "model/main_clnf_general.txt")
         
         try:
             print(f"   ⏱️  Running OpenFace (this may take a few minutes)...")
@@ -109,13 +132,20 @@ class OpenFaceProcessor:
             result = subprocess.run(
                 command,
                 capture_output=True,
-                timeout=600,  # INCREASED: 10 minutes timeout
+                timeout=600,  # 10 minutes timeout
                 text=True,
                 cwd=openface_dir
             )
             
             elapsed = time.time() - start_time
-            print(f"   ✅ OpenFace completed in {elapsed:.2f} seconds")
+            
+            # NEW: Show output on error for debugging
+            if result.returncode != 0:
+                print(f"   ❌ OpenFace failed with return code {result.returncode}")
+                if result.stderr:
+                    print(f"   Error output: {result.stderr[:500]}")  # First 500 chars
+            else:
+                print(f"   ✅ OpenFace completed in {elapsed:.2f} seconds")
             
             return result.returncode == 0
             
@@ -124,6 +154,8 @@ class OpenFaceProcessor:
             return False
         except Exception as e:
             print(f"   ❌ OpenFace error: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def _read_features(self):
